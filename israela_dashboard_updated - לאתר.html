@@ -1,0 +1,1158 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>דשבורד HR מקצועי - ישראלה ישראלי</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --primary-color: #8B7EC8;
+            --primary-light: #A695D1;
+            --primary-dark: #6B5B95;
+            --accent-blue: #87CEEB; /* כחול בהיר */
+            --accent-green: #98FB98; /* ירוק רך */
+            --background: #FAFBFC;
+            --surface: #FFFFFF;
+            --text-primary: #1C1E21;
+            --text-secondary: #65676B;
+            --text-muted: #8A8D91;
+            --border: #E4E6EA;
+            --shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+            --shadow-hover: 0 4px 20px rgba(0, 0, 0, 0.08);
+            --radius: 12px;
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--background);
+            color: var(--text-primary);
+            line-height: 1.6;
+            font-weight: 400;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .header {
+            background: var(--surface);
+            border-radius: var(--radius);
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: var(--shadow);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--primary-color), var(--primary-light));
+        }
+
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 2rem;
+        }
+
+        .employee-info {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+        }
+
+        .avatar {
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary-color), var(--primary-light));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: white;
+            box-shadow: 0 4px 12px rgba(139, 126, 200, 0.3);
+        }
+
+        .employee-details {
+            position: relative;
+        }
+
+        .employee-details h1 {
+            font-size: 1.75rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 0.25rem;
+        }
+
+        .employee-details p {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            margin-bottom: 0.5rem; /* מרווח לפני הכפתור */
+        }
+
+        .header-actions {
+            position: absolute;
+            top: 2.5rem;
+            right: 0;
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: var(--transition);
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-dark);
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background: var(--surface);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+        }
+
+        .btn-secondary:hover {
+            background: var(--background);
+            border-color: var(--primary-color);
+        }
+
+        .comparison-mode {
+            background: var(--surface);
+            border-radius: var(--radius);
+            padding: 1.5rem;
+            box-shadow: var(--shadow);
+            margin-top: 1rem;
+            display: none;
+        }
+
+        .comparison-mode.active {
+            display: block;
+        }
+
+        .comparison-selector {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .employee-selector {
+            flex: 1;
+            padding: 0.75rem;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--surface);
+            color: var(--text-primary);
+            font-family: inherit;
+        }
+
+        .comparison-chart {
+            height: 400px;
+            margin-bottom: 1.5rem;
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .widget {
+            background: var(--surface);
+            border-radius: var(--radius);
+            padding: 1.5rem;
+            box-shadow: var(--shadow);
+            transition: var(--transition);
+            opacity: 0;
+            transform: translateY(20px);
+            animation: slideUp 0.6s ease-out forwards;
+        }
+
+        .widget:hover {
+            box-shadow: var(--shadow-hover);
+            transform: translateY(-2px);
+        }
+
+        @keyframes slideUp {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .widget-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .widget-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .widget-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            background: linear-gradient(135deg, var(--primary-color), var(--accent-blue));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            color: white;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin-bottom: 1.5rem;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .metric-card {
+            text-align: center;
+            padding: 1rem;
+            border-radius: 8px;
+            background: linear-gradient(135deg, var(--primary-light)10, var(--accent-green)10);
+            border: 1px solid var(--border);
+            transition: var(--transition);
+        }
+
+        .metric-card:hover {
+            background: linear-gradient(135deg, var(--primary-light)20, var(--accent-green)20);
+            transform: translateY(-2px);
+        }
+
+        .metric-value {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--primary-color);
+            margin-bottom: 0.25rem;
+        }
+
+        .metric-label {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .insights {
+            background: var(--surface);
+            border-radius: var(--radius);
+            padding: 1.5rem;
+            box-shadow: var(--shadow);
+            margin-bottom: 2rem;
+        }
+
+        .insights-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .insights-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .insights-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .insight-item {
+            padding: 1.25rem;
+            border-radius: var(--radius);
+            background: var(--surface);
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow);
+            transition: var(--transition);
+        }
+
+        .insight-item:hover {
+            box-shadow: var(--shadow-hover);
+            transform: translateY(-2px);
+        }
+
+        .insight-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .insight-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .insight-content {
+            color: var(--text-secondary);
+            font-size: 1rem;
+            line-height: 1.7;
+        }
+
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 200px;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--border);
+            border-top: 3px solid var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: var(--surface);
+            color: var(--text-primary);
+            padding: 1rem 1.5rem;
+            border-radius: 8px;
+            box-shadow: var(--shadow-hover);
+            border: 1px solid var(--border);
+            z-index: 1000;
+            transform: translateX(100%);
+            transition: var(--transition);
+        }
+
+        .toast.show {
+            transform: translateX(0);
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+
+            .header-content {
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .insights-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* סגנון למד התקדמות */
+        .progress-circle {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: conic-gradient(#8B7EC8 0% var(--progress), #E4E6EA var(--progress) 100%);
+            margin-right: 0.5rem;
+            vertical-align: middle;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="header-content">
+                <div class="employee-info">
+                    <div class="avatar">ישי</div>
+                    <div class="employee-details">
+                        <h1>ישראלה ישראלי</h1>
+                        <p>מנהלת פיתוח עסקי • מחלקת מכירות • הצטרפה ב-2022</p>
+                        <div class="header-actions">
+                            <button class="btn btn-secondary" onclick="toggleComparison()">📊 השוואה</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="comparison-mode" id="comparisonMode">
+                <h2 class="insights-title">השוואה עם עובדים אחרים</h2>
+                <div class="comparison-selector">
+                    <select class="employee-selector" id="employeeSelect" onchange="updateComparison()">
+                        <option value="">בחר עובד להשוואה</option>
+                        <option value="david">דוד כהן - מנהל מוצר</option>
+                        <option value="sarah">שרה לוי - מנהלת שיווק</option>
+                        <option value="michael">מיכאל שטיין - מנהל מכירות</option>
+                        <option value="average">ממוצע מחלקה</option>
+                    </select>
+                </div>
+                <div class="comparison-chart">
+                    <canvas id="comparisonChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="dashboard-grid">
+            <div class="widget" style="animation-delay: 0.1s">
+                <div class="widget-header">
+                    <h3 class="widget-title">ניתוח אישיות Big Five</h3>
+                    <div class="widget-icon">🧠</div>
+                </div>
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <div class="metric-value">85%</div>
+                        <div class="metric-label">פתיחות לחוויות</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">78%</div>
+                        <div class="metric-label">מצפוניות</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">72%</div>
+                        <div class="metric-label">חברותיות</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">68%</div>
+                        <div class="metric-label">נעימות</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">75%</div>
+                        <div class="metric-label">יציבות רגשית</div>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="personalityChart"></canvas>
+                </div>
+                <div class="insight-content">
+                    <span class="progress-circle" style="--progress: 85%;"></span> פתיחות גבוהה לחוויות מצביעה על סקרנות, יצירתיות ופתיחות לרעיונות חדשים, תורמת לחדשנות.<br>
+                    <span class="progress-circle" style="--progress: 78%;"></span> מצפוניות גבוהה משקפת משמעת עצמית, ארגון ומחויבות למשימות, מתאימה לתפקידים מובנים.<br>
+                    <span class="progress-circle" style="--progress: 72%;"></span> חברותיות בינונית-גבוהה מצביעה על איזון בין תקשורת חברתית לצורך בזמן לבד.<br>
+                    <span class="progress-circle" style="--progress: 68%;"></span> נעימות בינונית משקפת שיתוף פעולה והרמוניה, עם פוטנציאל לחיזוק אסרטיביות.<br>
+                    <span class="progress-circle" style="--progress: 75%;"></span> יציבות רגשית גבוהה מעידה על חוסן נפשי ויכולת להתמודד עם לחץ במצבים מאתגרים.
+                </div>
+            </div>
+
+            <div class="widget" style="animation-delay: 0.2s">
+                <div class="widget-header">
+                    <h3 class="widget-title">מדדי ביצועים (KPI)</h3>
+                    <div class="widget-icon">📊</div>
+                </div>
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <div class="metric-value">92%</div>
+                        <div class="metric-label">איכות עבודה</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">88%</div>
+                        <div class="metric-label">עמידה בלוחות זמנים</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">85%</div>
+                        <div class="metric-label">יוזמה ויצירתיות</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">90%</div>
+                        <div class="metric-label">עבודת צוות</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">87%</div>
+                        <div class="metric-label">למידה והתפתחות</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">89%</div>
+                        <div class="metric-label">ציון כללי</div>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="performanceChart"></canvas>
+                </div>
+                <div class="insight-content">
+                    <span class="progress-circle" style="--progress: 92%;"></span> איכות עבודה גבוהה משקפת מצוינות בתוצרים, תורמת למוניטין מקצועי.<br>
+                    <span class="progress-circle" style="--progress: 88%;"></span> עמידה בלוחות זמנים עקבית מצביעה על משמעת ותכנון יעיל.<br>
+                    <span class="progress-circle" style="--progress: 85%;"></span> יוזמה ויצירתיות טובות תומכות בחדשנות בעבודה.<br>
+                    <span class="progress-circle" style="--progress: 90%;"></span> עבודת צוות מצוינת מחזקת שיתוף פעולה צוותי.<br>
+                    <span class="progress-circle" style="--progress: 87%;"></span> למידה והתפתחות טובה מצביעה על מחויבות לצמיחה אישית.<br>
+                    <span class="progress-circle" style="--progress: 89%;"></span> ציון כללי גבוה מעיד על ביצועים כוללים מרשימים.
+                </div>
+            </div>
+
+            <div class="widget" style="animation-delay: 0.3s">
+                <div class="widget-header">
+                    <h3 class="widget-title">ניתוח תורת המשחקים</h3>
+                    <div class="widget-icon">🎲</div>
+                </div>
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <div class="metric-value">שיתופי</div>
+                        <div class="metric-label">סגנון עבודה עיקרי</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">82%</div>
+                        <div class="metric-label">נטייה לשיתוף פעולה</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">גבוה</div>
+                        <div class="metric-label">רמת אמון בצוות</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">מתון</div>
+                        <div class="metric-label">נטילת סיכונים</div>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="gameTheoryChart"></canvas>
+                </div>
+                <div class="insight-content">
+                    <span class="progress-circle" style="--progress: 80%;"></span> מעדיפה פתרונות win-win במצבי קונפליקט, תורמת להרמוניה ושיתוף פעולה.<br>
+                    <span class="progress-circle" style="--progress: 82%;"></span> בונה אמון ארוך טווח עם עמיתים, מחזקת קשרים בין-צוותיים.<br>
+                    <span class="progress-circle" style="--progress: 75%;"></span> מתאימה לתפקידי ניהול צוות ופרויקטים, במיוחד בסביבות שיתופיות.
+                </div>
+            </div>
+
+            <div class="widget" style="animation-delay: 0.4s">
+                <div class="widget-header">
+                    <h3 class="widget-title">תורת המערכות המורכבות</h3>
+                    <div class="widget-icon">🛠</div>
+                </div>
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <div class="metric-value">8</div>
+                        <div class="metric-label">תרומת יציבות</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">7</div>
+                        <div class="metric-label">תפקוד בשינויים דינמיים</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">7</div>
+                        <div class="metric-label">זיהוי חורים במערכת</div>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="complexSystemsChart"></canvas>
+                </div>
+                <div class="insight-content">
+                    <span class="progress-circle" style="--progress: 80%;"></span> תרומת יציבות גבוהה מצביעה על יכולת ליצור סדר ועקביות במערכות מורכבות, תורמת ליעילות תפעולית.<br>
+                    <span class="progress-circle" style="--progress: 70%;"></span> תפקוד טוב בשינויים דינמיים משקף יכולת הסתגלות לשינויים, עם פוטנציאל לחדשנות מבוקרת.<br>
+                    <span class="progress-circle" style="--progress: 70%;"></span> זיהוי חורים טוב במערכת מעיד על ערנות לחריגות תפעוליות, עם הזדמנויות לשיפור מיומנויות אנליטיות.<br>
+                    <span class="progress-circle" style="--progress: 80%;"></span> חוזקות: תורמת לאיזון וסדר במערכות מורכבות, מתאימה לפרויקטים הדורשים גמישות וחדשנות.<br>
+                    <span class="progress-circle" style="--progress: 60%;"></span> אתגרים: עשויה להזדקק לתמיכה בסביבות עם שינויים קיצוניים, כגון פרויקטים מהירים.
+                </div>
+            </div>
+
+            <div class="widget" style="animation-delay: 0.5s">
+                <div class="widget-header">
+                    <h3 class="widget-title">חקר רשתות ארגוניות (ONA)</h3>
+                    <div class="widget-icon">🌐</div>
+                </div>
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <div class="metric-value">9</div>
+                        <div class="metric-label">צומת ידע</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">8</div>
+                        <div class="metric-label">גישור בין קבוצות</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">3</div>
+                        <div class="metric-label">נטייה לפריפריה</div>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="networkChart"></canvas>
+                </div>
+                <div class="insight-content">
+                    <span class="progress-circle" style="--progress: 90%;"></span> צומת ידע גבוהה משקפת יכולת ליצור קשרים חזקים ולהפוך למרכז מידע בארגון.<br>
+                    <span class="progress-circle" style="--progress: 80%;"></span> גישור טוב בין קבוצות מצביע על כישורים לקשר בין יחידות, תורם לשיתוף פעולה.<br>
+                    <span class="progress-circle" style="--progress: 30%;"></span> נטייה נמוכה לפריפריה מעידה על העדפה לפעול במרכז הרשת הארגונית, עם השפעה גבוהה.<br>
+                    <span class="progress-circle" style="--progress: 85%;"></span> חוזקות: מצטיינת ביצירת קשרים חזקים וגישור בין יחידות, מתאימה לתפקידי תיאום ולניהול ממשקים.<br>
+                    <span class="progress-circle" style="--progress: 65%;"></span> אתגרים: נדרש חיזוק בניהול קונפליקטים בין קבוצות, במיוחד במצבים מורכבים.
+                </div>
+            </div>
+
+            <div class="widget" style="animation-delay: 0.6s">
+                <div class="widget-header">
+                    <h3 class="widget-title">UX תעסוקתי</h3>
+                    <div class="widget-icon">🖥</div>
+                </div>
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <div class="metric-value">8</div>
+                        <div class="metric-label">עבודה היברידית</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">9</div>
+                        <div class="metric-label">מבנה פתוח</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">6</div>
+                        <div class="metric-label">סביבות כאוטיות</div>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="uxChart"></canvas>
+                </div>
+                <div class="insight-content">
+                    <span class="progress-circle" style="--progress: 80%;"></span> יכולת טובה בעבודה היברידית משקפת הסתגלות לשילוב עבודה מרחוק ומשרדית עם נהלים ברורים.<br>
+                    <span class="progress-circle" style="--progress: 90%;"></span> התאמה גבוהה למבנה פתוח מצביעה על הצלחה בסביבות שיתופיות עם אינטראקציות תכופות.<br>
+                    <span class="progress-circle" style="--progress: 60%;"></span> יכולת בינונית בסביבות כאוטיות מעידה על קושי מסוים בשינויים תכופים ללא מבנה ברור.<br>
+                    <span class="progress-circle" style="--progress: 85%;"></span> חוזקות: מתאימה לסביבות עבודה פתוחות ושיתופיות, מסתגלת היטב לעבודה היברידית.<br>
+                    <span class="progress-circle" style="--progress: 65%;"></span> אתגרים: פחות מתאימה לסביבות כאוטיות כמו סטארט-אפים דינמיים, נדרש מבנה ברור.
+                </div>
+            </div>
+
+            <div class="widget" style="animation-delay: 0.7s">
+                <div class="widget-header">
+                    <h3 class="widget-title">ניתוח תקשורת (NLP)</h3>
+                    <div class="widget-icon">🗣</div>
+                </div>
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <div class="metric-value">9</div>
+                        <div class="metric-label">בהירות תקשורתית</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">7</div>
+                        <div class="metric-label">יכולת השפעה</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">6</div>
+                        <div class="metric-label">הצבת גבולות</div>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="communicationChart"></canvas>
+                </div>
+                <div class="insight-content">
+                    <span class="progress-circle" style="--progress: 90%;"></span> בהירות תקשורתית גבוהה משקפת יכולת להעביר מסרים בצורה ברורה ומכבדת, תורמת לעבודת צוות.<br>
+                    <span class="progress-circle" style="--progress: 70%;"></span> יכולת השפעה טובה מצביעה על כישורים להשפיע בדרכים רכות, עם פוטנציאל לחיזוק דומיננטיות.<br>
+                    <span class="progress-circle" style="--progress: 60%;"></span> הצבת גבולות בינונית מעידה על קושי מסוים להציב קווים ברורים, נדרש חיזוק באסרטיביות.<br>
+                    <span class="progress-circle" style="--progress: 85%;"></span> חוזקות: תקשורת בהירה ושיתופית, תורמת לעבודת צוות יעילה ולקשרי עבודה חזקים.<br>
+                    <span class="progress-circle" style="--progress: 65%;"></span> אתגרים: נדרש חיזוק בהצבת גבולות והובלה דומיננטית במצבים תחרותיים.
+                </div>
+            </div>
+        </div>
+
+        <div class="insights">
+            <div class="insights-header">
+                <h2 class="insights-title">תובנות והמלצות</h2>
+            </div>
+            <div class="insights-grid">
+                <div class="insight-item">
+                    <div class="insight-header">
+                        <h4 class="insight-title">נקודות חוזק עיקריות</h4>
+                    </div>
+                    <div class="insight-content">
+                        <span class="progress-circle" style="--progress: 90%;"></span> ביצועים מעולים בכל המדדים, עם איכות עבודה גבוהה ועקבית.<br>
+                        <span class="progress-circle" style="--progress: 85%;"></span> כישורי עבודת צוות מפותחים, תורמים לשיתוף פעולה אפקטיבי.<br>
+                        <span class="progress-circle" style="--progress: 80%;"></span> פתיחות לחדשנות ולמידה, מאפשרת הסתגלות לרעיונות חדשים.<br>
+                        <span class="progress-circle" style="--progress: 75%;"></span> גישה מאוזנת לקבלת החלטות, תורמת לקבלת החלטות מושכלות.
+                    </div>
+                </div>
+                <div class="insight-item">
+                    <div class="insight-header">
+                        <h4 class="insight-title">תחומים לשיפור</h4>
+                    </div>
+                    <div class="insight-content">
+                        <span class="progress-circle" style="--progress: 60%;"></span> פיתוח כישורי מנהיגות להובלה דומיננטית יותר בצוותים.<br>
+                        <span class="progress-circle" style="--progress: 65%;"></span> ניהול זמן מתקדם לשיפור יעילות במשימות מורכבות.<br>
+                        <span class="progress-circle" style="--progress: 70%;"></span> כישורי הצגה ודיבור בציבור לחיזוק השפעה בדיונים.
+                    </div>
+                </div>
+                <div class="insight-item">
+                    <div class="insight-header">
+                        <h4 class="insight-title">המלצות לפיתוח</h4>
+                    </div>
+                    <div class="insight-content">
+                        <span class="progress-circle" style="--progress: 80%;"></span> המלצות קצרות טווח (3-6 חודשים): הדרכת צוותים קטנים - ניצול כישורי השיתוף והמנהיגות של ישראלה להובלת צוותים קטנים בפרויקטים שיתופיים.<br>
+                        <span class="progress-circle" style="--progress: 85%;"></span> פרויקטים חדשניים - מתן מרחב לפתיחות לחוויות גבוהה, תוך שילוב בפרויקטים הדורשים חשיבה יצירתית.<br>
+                        <span class="progress-circle" style="--progress: 75%;"></span> קורס ניהול זמן - חיזוק המצפוניות והארגון לשיפור יעילות בעבודה מובנית.<br>
+                        <span class="progress-circle" style="--progress: 80%;"></span> המלצות ארוכות טווח (שנה+): תפקיד ניהולי - התקדמות לתפקיד מנהל צוות או פרויקט, תוך ניצול כישורי שיתוף פעולה.<br>
+                        <span class="progress-circle" style="--progress: 85%;"></span> הכשרה בחדשנות - פיתוח כישורי חשיבה יצירתית להובלת יוזמות חדשות בארגון.<br>
+                        <span class="progress-circle" style="--progress: 90%;"></span> מנטורינג - הדרכת עובדים חדשים בארגון, תוך שימוש בבהירות התקשורתית שלה.
+                    </div>
+                </div>
+                <div class="insight-item">
+                    <div class="insight-header">
+                        <h4 class="insight-title">המלצה סופית</h4>
+                    </div>
+                    <div class="insight-content">
+                        <span class="progress-circle" style="--progress: 85%;"></span> ישראלה ישראלי מתאימה מאוד לתפקידי ניהול ופיתוח עסקי.<br>
+                        <span class="progress-circle" style="--progress: 80%;"></span> מומלץ להכין תוכנית פיתוח אישית המתמקדת בכישורי מנהיגות, ניהול זמן, והצגת רעיונות, תוך מתן אחריות מוגברת בפרויקטים אסטרטגיים.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let charts = {};
+        let comparisonChart = null;
+
+        // Initialize dashboard
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeCharts();
+            staggerAnimations();
+        });
+
+        function staggerAnimations() {
+            const widgets = document.querySelectorAll('.widget');
+            widgets.forEach((widget, index) => {
+                widget.style.animationDelay = `${index * 0.1}s`;
+            });
+        }
+
+        function initializeCharts() {
+            // Personality Chart (Big Five)
+            const personalityCtx = document.getElementById('personalityChart').getContext('2d');
+            charts.personality = new Chart(personalityCtx, {
+                type: 'radar',
+                data: {
+                    labels: ['פתיחות לחוויות', 'מצפוניות', 'חברותיות', 'נעימות', 'יציבות רגשית'],
+                    datasets: [{
+                        label: 'ישראלה ישראלי',
+                        data: [85, 78, 72, 68, 75],
+                        backgroundColor: 'rgba(139, 126, 200, 0.2)',
+                        borderColor: '#8B7EC8',
+                        borderWidth: 2,
+                        pointBackgroundColor: '#8B7EC8',
+                        pointBorderColor: '#fff',
+                        pointHoverBackgroundColor: '#fff',
+                        pointHoverBorderColor: '#8B7EC8'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        r: {
+                            beginAtZero: true,
+                            max: 100,
+                            grid: { color: 'rgba(0, 0, 0, 0.1)' },
+                            pointLabels: { font: { size: 12 } }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            enabled: true,
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.label}: ${context.raw}% - מדד אישיות מרכזי`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Performance Chart (KPI)
+            const performanceCtx = document.getElementById('performanceChart').getContext('2d');
+            charts.performance = new Chart(performanceCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['איכות עבודה', 'עמידה בלוחות זמנים', 'יוזמה ויצירתיות', 'עבודת צוות', 'למידה והתפתחות'],
+                    datasets: [{
+                        data: [92, 88, 85, 90, 87],
+                        backgroundColor: ['#8B7EC8', '#A695D1', '#87CEEB', '#98FB98', '#DBCFE8'],
+                        borderWidth: 0,
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { beginAtZero: true, max: 100, grid: { color: 'rgba(0, 0, 0, 0.1)' } },
+                        x: { grid: { display: false } }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            enabled: true,
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.label}: ${context.raw}% - מדד ביצועים`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Game Theory Chart
+            const gameTheoryCtx = document.getElementById('gameTheoryChart').getContext('2d');
+            charts.gameTheory = new Chart(gameTheoryCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['סגנון עבודה עיקרי', 'נטייה לשיתוף פעולה', 'רמת אמון בצוות', 'נטילת סיכונים'],
+                    datasets: [{
+                        data: [80, 82, 75, 50],
+                        backgroundColor: '#87CEEB',
+                        borderWidth: 0,
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: { y: { beginAtZero: true, max: 100, grid: { color: 'rgba(0, 0, 0, 0.1)' } } },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            enabled: true,
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.label}: ${context.raw}% - התנהגות אסטרטגית`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Complex Systems Chart
+            const complexSystemsCtx = document.getElementById('complexSystemsChart').getContext('2d');
+            charts.complexSystems = new Chart(complexSystemsCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['תרומת יציבות', 'תפקוד בשינויים דינמיים', 'זיהוי חורים במערכת'],
+                    datasets: [{
+                        data: [8, 7, 7],
+                        backgroundColor: '#98FB98',
+                        borderWidth: 0,
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: { y: { beginAtZero: true, max: 10, grid: { color: 'rgba(0, 0, 0, 0.1)' } } },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            enabled: true,
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.label}: ${context.raw}/10 - יכולת ניהול מערכות`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Network Chart (ONA)
+            const networkCtx = document.getElementById('networkChart').getContext('2d');
+            charts.network = new Chart(networkCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['צומת ידע', 'גישור בין קבוצות', 'נטייה לפריפריה'],
+                    datasets: [{
+                        data: [9, 8, 3],
+                        backgroundColor: ['#8B7EC8', '#87CEEB', '#98FB98'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '60%',
+                    plugins: {
+                        legend: { position: 'bottom' },
+                        tooltip: {
+                            enabled: true,
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.label}: ${context.raw}/10 - קישוריות ארגונית`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // UX Chart
+            const uxCtx = document.getElementById('uxChart').getContext('2d');
+            charts.ux = new Chart(uxCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['עבודה היברידית', 'מבנה פתוח', 'סביבות כאוטיות'],
+                    datasets: [{
+                        data: [8, 9, 6],
+                        backgroundColor: '#87CEEB',
+                        borderWidth: 0,
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: { y: { beginAtZero: true, max: 10, grid: { color: 'rgba(0, 0, 0, 0.1)' } } },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            enabled: true,
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.label}: ${context.raw}/10 - התאמה סביבתית`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Communication Chart (NLP)
+            const communicationCtx = document.getElementById('communicationChart').getContext('2d');
+            charts.communication = new Chart(communicationCtx, {
+                type: 'line',
+                data: {
+                    labels: ['בהירות תקשורתית', 'יכולת השפעה', 'הצבת גבולות'],
+                    datasets: [{
+                        data: [9, 7, 6],
+                        backgroundColor: 'rgba(135, 206, 235, 0.2)', /* כחול בהיר */
+                        borderColor: '#87CEEB',
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.4,
+                        pointBackgroundColor: '#87CEEB',
+                        pointBorderColor: '#fff',
+                        pointBorderWidth: 2,
+                        pointRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { beginAtZero: true, max: 10, grid: { color: 'rgba(0, 0, 0, 0.1)' } },
+                        x: { grid: { display: false } }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            enabled: true,
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.label}: ${context.raw}/10 - כישורי תקשורת`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Comparison Chart
+            const comparisonCtx = document.getElementById('comparisonChart').getContext('2d');
+            if (comparisonChart) comparisonChart.destroy();
+            comparisonChart = new Chart(comparisonCtx, {
+                type: 'radar',
+                data: {
+                    labels: ['פתיחות לחוויות', 'מצפוניות', 'חברותיות', 'נעימות', 'יציבות רגשית'],
+                    datasets: [{
+                        label: 'ישראלה ישראלי',
+                        data: [85, 78, 72, 68, 75],
+                        backgroundColor: 'rgba(139, 126, 200, 0.2)',
+                        borderColor: '#8B7EC8',
+                        borderWidth: 2,
+                        pointBackgroundColor: '#8B7EC8'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: { r: { beginAtZero: true, max: 100, grid: { color: 'rgba(0, 0, 0, 0.1)' } } },
+                    plugins: {
+                        legend: { position: 'bottom' },
+                        tooltip: {
+                            enabled: true,
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.label}: ${context.raw}% - השוואת אישיות`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function toggleComparison() {
+            const comparisonMode = document.getElementById('comparisonMode');
+            comparisonMode.classList.toggle('active');
+            if (comparisonMode.classList.contains('active')) {
+                comparisonMode.scrollIntoView({ behavior: 'smooth' });
+                updateComparison(); // עדכון ראשוני כשפתחו את ההשוואה
+            } else {
+                if (comparisonChart) comparisonChart.destroy();
+                comparisonChart = null;
+                document.getElementById('comparisonChart').remove();
+                const canvas = document.createElement('canvas');
+                canvas.id = 'comparisonChart';
+                document.querySelector('.comparison-chart').appendChild(canvas);
+            }
+        }
+
+        function updateComparison() {
+            const selectedEmployee = document.getElementById('employeeSelect').value;
+            if (!selectedEmployee) {
+                if (comparisonChart) {
+                    comparisonChart.destroy();
+                    comparisonChart = null;
+                }
+                return;
+            }
+
+            const chartContainer = document.querySelector('.comparison-chart');
+            chartContainer.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+
+            setTimeout(() => {
+                chartContainer.innerHTML = '<canvas id="comparisonChart"></canvas>';
+                createComparisonChart(selectedEmployee);
+            }, 1000);
+        }
+
+        function createComparisonChart(employee) {
+            const ctx = document.getElementById('comparisonChart').getContext('2d');
+            const employeeData = {
+                david: { name: 'דוד כהן', data: [78, 85, 65, 70, 82] },
+                sarah: { name: 'שרה לוי', data: [88, 75, 78, 85, 70] },
+                michael: { name: 'מיכאל שטיין', data: [72, 88, 82, 65, 78] },
+                average: { name: 'ממוצע מחלקה', data: [79, 82, 75, 73, 77] }
+            };
+            const compareData = employeeData[employee];
+
+            if (comparisonChart) comparisonChart.destroy();
+            comparisonChart = new Chart(ctx, {
+                type: 'radar',
+                data: {
+                    labels: ['פתיחות לחוויות', 'מצפוניות', 'חברותיות', 'נעימות', 'יציבות רגשית'],
+                    datasets: [{
+                        label: 'ישראלה ישראלי',
+                        data: [85, 78, 72, 68, 75],
+                        backgroundColor: 'rgba(139, 126, 200, 0.2)',
+                        borderColor: '#8B7EC8',
+                        borderWidth: 2,
+                        pointBackgroundColor: '#8B7EC8'
+                    }, {
+                        label: compareData.name,
+                        data: compareData.data,
+                        backgroundColor: 'rgba(135, 206, 235, 0.2)', /* כחול בהיר */
+                        borderColor: '#87CEEB',
+                        borderWidth: 2,
+                        pointBackgroundColor: '#87CEEB'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: { r: { beginAtZero: true, max: 100, grid: { color: 'rgba(0, 0, 0, 0.1)' } } },
+                    plugins: {
+                        legend: { position: 'bottom' },
+                        tooltip: {
+                            enabled: true,
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.label}: ${context.raw}% - השוואת אישיות`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
