@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>ActionGate Approvals (MVP)</title>
+    <style>
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 24px; }
+      .row { border: 1px solid #ddd; border-radius: 12px; padding: 12px; margin-bottom: 12px; }
+      .meta { color: #666; font-size: 12px; }
+      button { padding: 8px 12px; border-radius: 10px; border: 1px solid #ccc; background: #fff; cursor: pointer; }
+      button.primary { border-color: #111; }
+      pre { white-space: pre-wrap; background: #f6f6f6; padding: 12px; border-radius: 10px; overflow: auto; }
+    </style>
+  </head>
+  <body>
+    <h1>ActionGate Approvals</h1>
+    <p class="meta">Unified API mode: uses /api/approvals endpoints.</p>
+    <label>
+      API Base URL:
+      <input id="baseUrl" style="width: 320px" value="http://localhost:8000" />
+    </label>
+    <button class="primary" onclick="loadReqs()">Refresh</button>
+
+    <h2>Pending</h2>
+    <div id="list"></div>
+
+    <script>
+      async function loadReqs() {
+        const base = document.getElementById("baseUrl").value.trim();
+        const res = await fetch(`${base}/api/approvals?status=pending`);
+        const data = await res.json();
+        const list = document.getElementById("list");
+        list.innerHTML = "";
+        for (const r of data) {
+          const div = document.createElement("div");
+          div.className = "row";
+          div.innerHTML = `
+            <div class="meta">id=${r.id} | risk=${r.request.risk} | tool=${r.request.tool}</div>
+            <pre>${JSON.stringify(r.request, null, 2)}</pre>
+            <button onclick="decide('${r.id}', true)">Approve</button>
+            <button onclick="decide('${r.id}', false)">Deny</button>
+          `;
+          list.appendChild(div);
+        }
+        if (!data.length) {
+          list.innerHTML = "<div class='meta'>No pending approvals.</div>";
+        }
+      }
+
+      async function decide(id, approved) {
+        const base = document.getElementById("baseUrl").value.trim();
+        const note = prompt("Optional note:", "") || "";
+        await fetch(`${base}/api/approvals/${id}/decide`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ approved, note, by: "human" })
+        });
+        await loadReqs();
+      }
+
+      loadReqs();
+    </script>
+  </body>
+</html>

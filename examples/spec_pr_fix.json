@@ -1,0 +1,18 @@
+{
+  "name": "Example: PR Fix Pack (offline skeleton)",
+  "tasks": [
+    {
+      "name": "build_merge_pack",
+      "goal": "Create a merge-readiness style pack: plan, actions, and a final structured summary.",
+      "context_files": [
+        "README.md"
+      ],
+      "checks": [
+        {
+          "kind": "file_exists",
+          "path": "README.md"
+        }
+      ]
+    }
+  ]
+}

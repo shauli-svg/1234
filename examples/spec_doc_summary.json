@@ -1,0 +1,13 @@
+{
+  "name": "Documentation Summary",
+  "tasks": [
+    {
+      "name": "summarize_readme",
+      "goal": "Read README.md and produce a short 3-bullet summary.",
+      "context_files": ["README.md"],
+      "checks": [
+        {"kind": "file_exists", "path": "README.md"}
+      ]
+    }
+  ]
+}
