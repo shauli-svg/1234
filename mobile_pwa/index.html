@@ -15,10 +15,10 @@
   </head>
   <body>
     <h1>ActionGate Approvals</h1>
-    <p class="meta">MVP PWA: lists pending approvals and lets you approve/deny.</p>
+    <p class="meta">Unified API mode: uses /api/approvals endpoints.</p>
     <label>
-      Approval Server URL:
-      <input id="baseUrl" style="width: 320px" value="http://localhost:8008" />
+      API Base URL:
+      <input id="baseUrl" style="width: 320px" value="http://localhost:8000" />
     </label>
     <button class="primary" onclick="loadReqs()">Refresh</button>
 
@@ -28,7 +28,7 @@
     <script>
       async function loadReqs() {
         const base = document.getElementById("baseUrl").value.trim();
-        const res = await fetch(`${base}/requests?status=pending`);
+        const res = await fetch(`${base}/api/approvals?status=pending`);
         const data = await res.json();
         const list = document.getElementById("list");
         list.innerHTML = "";
@@ -51,7 +51,7 @@
       async function decide(id, approved) {
         const base = document.getElementById("baseUrl").value.trim();
         const note = prompt("Optional note:", "") || "";
-        await fetch(`${base}/requests/${id}/decide`, {
+        await fetch(`${base}/api/approvals/${id}/decide`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ approved, note, by: "human" })

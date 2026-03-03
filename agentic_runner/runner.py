@@ -1,10 +1,10 @@
 import json
-import uuid
 from pathlib import Path
 from typing import Any, Dict
+import uuid
 
 from .events import EventLog
-from .llm.provider import LLMProvider, MockLLM
+from .llm.provider import LLMProvider, SYSTEM_PROMPT, provider_from_name
 from .policy import PolicyEngine
 from .tool_proxy import ToolProxy, ToolSpec
 from .tools.exec import run_cmd
@@ -12,9 +12,7 @@ from .tools.files import read_text, write_text
 
 
 def _load_llm(name: str) -> LLMProvider:
-    if name == "mock":
-        return MockLLM()
-    raise ValueError("Unknown LLM provider. Implement your provider in agentic_runner/llm/provider.py")
+    return provider_from_name(name)
 
 
 def run_pipeline(*, spec: Dict[str, Any], workspace_dir: Path, out_dir: Path, auto_approve: bool, llm_provider: str) -> str:
@@ -38,7 +36,7 @@ def run_pipeline(*, spec: Dict[str, Any], workspace_dir: Path, out_dir: Path, au
     if not tasks:
         raise ValueError("Spec must include tasks[]")
 
-    final = {"run_id": run_id, "outputs": []}
+    final = {"run_id": run_id, "spec_name": spec.get("name"), "outputs": []}
     for task in tasks:
         output = _run_task(task=task, llm=llm, tools=tools, log=log)
         final["outputs"].append(output)
@@ -60,7 +58,7 @@ def _run_task(*, task: Dict[str, Any], llm: LLMProvider, tools: ToolProxy, log: 
         except Exception as exc:  # noqa: BLE001
             log.emit("context_read_error", path=path, error=str(exc))
 
-    system = {"role": "system", "content": "You are an action-oriented agent. Always output structured JSON."}
+    system = {"role": "system", "content": SYSTEM_PROMPT}
     user = {
         "role": "user",
         "content": (
@@ -70,9 +68,20 @@ def _run_task(*, task: Dict[str, Any], llm: LLMProvider, tools: ToolProxy, log: 
         ),
     }
 
-    response = llm.chat([system, user], json_mode=True)
-    content = response.get("content") or {}
-    log.emit("llm_response", task=name, response=content, usage=response.get("usage"))
+    content: Dict[str, Any]
+    usage: Dict[str, Any]
+    try:
+        response = llm.chat([system, user], json_mode=True)
+        content = response.get("content") or {}
+        if not isinstance(content, dict):
+            content = {"final_output": str(content), "actions": [], "plan": []}
+        usage = response.get("usage") or {}
+        log.emit("llm_response", task=name, response=content, usage=usage)
+    except Exception as exc:  # noqa: BLE001
+        short_error = str(exc).split("\n")[0][:200]
+        log.emit("llm_error", task=name, error=short_error)
+        content = {"plan": [], "actions": [], "final_output": f"LLM_ERROR: {short_error}"}
+        usage = {}
 
     executed = []
     for action in content.get("actions", []):
@@ -101,5 +110,6 @@ def _run_task(*, task: Dict[str, Any], llm: LLMProvider, tools: ToolProxy, log: 
         "plan": content.get("plan"),
         "executed_actions": executed,
         "checks": checks,
+        "usage": usage,
         "final_output": content.get("final_output") or content,
     }
