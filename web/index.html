@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Safe AI Agent Runner</title>
+    <style>
+      body { font-family: Inter, system-ui, sans-serif; margin: 0; background: #f7f8fb; color: #0f172a; }
+      header { background: #111827; color: #fff; padding: 16px 24px; display:flex; justify-content:space-between; align-items:center; }
+      .sub { color: #cbd5e1; font-size: 14px; }
+      .cta { background:#22c55e; color:#06210f; border:none; padding:10px 14px; border-radius:8px; font-weight:700; }
+      main { padding: 20px; max-width: 1200px; margin: 0 auto; }
+      .tabs button{ margin-right:8px; padding:8px 12px; border-radius:8px; border:1px solid #d1d5db; background:#fff; }
+      .card { background: white; border-radius: 12px; border: 1px solid #e5e7eb; padding: 16px; margin-top: 16px; }
+      table { width:100%; border-collapse: collapse; }
+      th, td { text-align:left; padding:8px; border-bottom:1px solid #eee; font-size:14px; }
+      .badge { padding:2px 8px; border-radius:999px; font-size:12px; font-weight:700; }
+      .pending{background:#e5e7eb;} .running{background:#bfdbfe;} .completed{background:#bbf7d0;} .failed{background:#fecaca;}
+      pre { background: #0b1020; color: #d1fae5; padding: 12px; border-radius: 8px; overflow:auto; }
+      input, select, textarea { width:100%; padding:8px; margin-top:6px; border:1px solid #d1d5db; border-radius:8px; }
+      .grid { display:grid; grid-template-columns: 1fr 1fr; gap:16px; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div>
+        <strong>Safe AI Agent Runner</strong>
+        <div class="sub">Plan → Act → Verify, עם אישורים אנושיים ו-full audit trail.</div>
+      </div>
+      <button class="cta">Need this in your org?</button>
+    </header>
+    <main>
+      <div class="tabs">
+        <button onclick="show('dashboard')">Dashboard</button>
+        <button onclick="show('new')">Start New Run</button>
+        <button onclick="show('approvals')">Approvals</button>
+      </div>
+
+      <section id="dashboard" class="card"></section>
+      <section id="new" class="card" style="display:none"></section>
+      <section id="detail" class="card" style="display:none"></section>
+      <section id="approvals" class="card" style="display:none"></section>
+    </main>
+
+    <script>
+      const API = (window.API_BASE || 'http://localhost:8000');
+      let currentRun = null;
+
+      function statusBadge(status){
+        return `<span class="badge ${status}">${status}</span>`;
+      }
+
+      function show(id){
+        for (const el of ['dashboard','new','detail','approvals']) {
+          document.getElementById(el).style.display = el===id ? 'block' : 'none';
+        }
+        if (id==='dashboard') loadRuns();
+        if (id==='new') loadNewRun();
+        if (id==='approvals') loadApprovals();
+      }
+
+      async function loadRuns(){
+        const runs = await (await fetch(`${API}/api/runs`)).json();
+        const rows = runs.map(r => `<tr><td>${r.run_id}</td><td>${statusBadge(r.status||'unknown')}</td><td>${r.spec_path||'-'}</td><td><button onclick="openRun('${r.run_id}')">View</button></td></tr>`).join('');
+        document.getElementById('dashboard').innerHTML = `<h3>Runs</h3><table><tr><th>ID</th><th>Status</th><th>Spec</th><th></th></tr>${rows}</table>`;
+      }
+
+      async function loadNewRun(){
+        const specs = await (await fetch(`${API}/api/specs`)).json();
+        const opts = specs.map(s => `<option value="${s.file}">${s.name} (${s.file})</option>`).join('');
+        document.getElementById('new').innerHTML = `
+          <h3>Start New Run</h3>
+          <div class="grid">
+            <div>
+              <label>Spec</label><select id="spec">${opts}</select>
+              <label>Workspace</label><input id="workspace" value="" placeholder="_demo_workspace" />
+              <label>LLM Provider</label><select id="provider"><option>mock</option><option>openai</option></select>
+              <label><input type="checkbox" id="auto" /> Auto-approve high-risk actions</label>
+              <button onclick="createRun()">Run</button>
+            </div>
+            <div>
+              <label>Spec JSON</label>
+              <pre id="specJson">Select a spec</pre>
+            </div>
+          </div>`;
+        document.getElementById('spec').onchange = renderSpec;
+        renderSpec();
+      }
+
+      async function renderSpec(){
+        const value = document.getElementById('spec').value;
+        const name = value.split('/').pop();
+        const data = await (await fetch(`${API}/api/specs/${name}`)).json();
+        document.getElementById('specJson').textContent = JSON.stringify(data, null, 2);
+      }
+
+      async function createRun(){
+        const body = {
+          spec_path: document.getElementById('spec').value,
+          workspace: document.getElementById('workspace').value || null,
+          auto_approve: document.getElementById('auto').checked,
+          llm_provider: document.getElementById('provider').value,
+        };
+        const resp = await (await fetch(`${API}/api/runs`, {method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(body)})).json();
+        openRun(resp.run_id);
+      }
+
+      async function openRun(runId){
+        currentRun = runId;
+        show('detail');
+        await loadRunDetail(runId);
+      }
+
+      async function loadRunDetail(runId){
+        const data = await (await fetch(`${API}/api/runs/${runId}`)).json();
+        const events = await (await fetch(`${API}/api/runs/${runId}/events`)).json();
+        const artifacts = await (await fetch(`${API}/api/runs/${runId}/artifacts`)).json();
+        const output = data.final?.outputs?.[0] || {};
+        const actions = (output.executed_actions||[]).map(a => `<tr><td>${a.tool}</td><td><pre>${JSON.stringify(a.args||{},null,2)}</pre></td><td><pre>${JSON.stringify(a.result||a.error||{},null,2)}</pre></td></tr>`).join('');
+        const checks = (output.checks||[]).map(c => `<li>${c.kind}: <strong>${String(c.ok)}</strong></li>`).join('');
+        const ev = events.map(e => `<li>${new Date(e.ts*1000).toLocaleTimeString()} - ${e.kind}</li>`).join('');
+        const art = artifacts.map(a => `<li><a target="_blank" href="${API}/api/runs/${runId}/artifacts/${a}">${a}</a></li>`).join('');
+        document.getElementById('detail').innerHTML = `
+          <h3>Run ${runId} ${statusBadge(data.status?.status || 'unknown')}</h3>
+          <p><strong>Goal:</strong> ${output.goal || '-'}</p>
+          <h4>Plan</h4><pre>${JSON.stringify(output.plan||[],null,2)}</pre>
+          <h4>Executed Actions</h4><table><tr><th>Tool</th><th>Args</th><th>Result/Error</th></tr>${actions}</table>
+          <h4>Checks</h4><ul>${checks}</ul>
+          <h4>Final Output</h4><pre>${JSON.stringify(output.final_output||{},null,2)}</pre>
+          <h4>Artifacts</h4><ul>${art}</ul>
+          <h4>Event Log</h4><ul>${ev}</ul>`;
+
+        if (data.status?.status === 'running' || data.status?.status === 'pending') {
+          setTimeout(() => { if (currentRun===runId) loadRunDetail(runId); }, 2500);
+        }
+      }
+
+      async function loadApprovals(){
+        const pending = await (await fetch(`${API}/api/approvals?status=pending`)).json();
+        const rows = pending.map(r => `<div style="border:1px solid #e5e7eb;padding:8px;margin:8px 0;border-radius:8px;">
+          <div><strong>${r.id}</strong> | ${r.request?.tool} | ${r.request?.risk}</div>
+          <pre>${JSON.stringify(r.request, null, 2)}</pre>
+          <button onclick="decide('${r.id}', true)">Approve</button>
+          <button onclick="decide('${r.id}', false)">Deny</button>
+        </div>`).join('');
+        document.getElementById('approvals').innerHTML = `<h3>Pending approvals</h3>${rows || 'No pending approvals.'}`;
+      }
+
+      async function decide(id, approved){
+        const note = prompt('Optional note', '') || '';
+        await fetch(`${API}/api/approvals/${id}/decide`, {
+          method:'POST', headers:{'content-type':'application/json'},
+          body: JSON.stringify({approved, note, by:'human'})
+        });
+        loadApprovals();
+      }
+
+      loadRuns();
+      setInterval(() => {
+        if (document.getElementById('dashboard').style.display !== 'none') loadRuns();
+      }, 7000);
+    </script>
+  </body>
+</html>

@@ -1,0 +1,11 @@
+{
+  "name": "Run Demo Tests",
+  "tasks": [
+    {
+      "name": "run_pytests",
+      "goal": "Run pytest on the demo workspace and summarize results. Use tool run_cmd with [\"pytest\", \"-q\"]",
+      "context_files": [],
+      "checks": []
+    }
+  ]
+}
